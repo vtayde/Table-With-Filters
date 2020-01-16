@@ -1,0 +1,214 @@
+<html>
+  <head> </head>
+  <body>
+    <style>
+      body {
+        margin: 0px;
+        height: 100%;
+      }
+      h4 {
+        display: flex;
+        justify-content: center;
+        height: 50px;
+        align-items: center;
+      }
+      .header {
+        font-size: 18px;
+        font-weight: 600;
+        background-color: rgb(58, 209, 189);
+        box-shadow: 4px 2px 4px 4px grey;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .main {
+        display: flex;
+        height: calc(100% - 55px);
+        background-color: rgb(245, 243, 243);
+      }
+      nav {
+        flex: 1;
+        background-color: rgb(199, 199, 199);
+      }
+      .container {
+        flex: 8;
+        padding: 1rem;
+        margin: 0.5rem;
+        width: 80%;
+      }
+      .card {
+        box-shadow: 4px 2px 4px 4px grey;
+        width: 80%;
+        /* margin:auto; */
+      }
+      .btn {
+        color: black;
+        background-color: grey;
+        border: 1px solid grey;
+        border-radius: 4px;
+        padding: 0.5rem;
+        font-size: 1rem;
+      }
+      .form-input {
+        display: flex;
+        justify-content: center;
+        padding: 0.5rem;
+      }
+      #table-container {
+        box-sizing: border-box;
+        overflow: auto;
+        height: 80%;
+        width: 100%;
+      }
+    </style>
+    <div class="header">HTML Table with Filters and Sorting</div>
+    <div class="main">
+      <nav>
+        <ul>
+          <li>
+            Tab1
+          </li>
+        </ul>
+      </nav>
+      <div class="container">
+        <div class="card" id="loginCard">
+          <h4>Login Form</h4>
+          <div class="form-input">
+            Email ID:
+            <input
+              type="email"
+              id="email"
+              placeholder="enter Email"
+              value="impact@impactanalytics.co"
+            />
+          </div>
+          <div class="form-input">
+            Password
+            <input
+              type="password"
+              id="password"
+              placeholder="enter password"
+              value="impactpasswordstage"
+            />
+          </div>
+          <div class="form-input">
+            <button class="btn" onclick="getLogin()">Login</button>
+          </div>
+        </div>
+        <div class="card" id="tableCard">
+          <h4>Table</h4>
+          <div id="table-container"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      let token = null;
+      let authentication = null;
+      let Allocations = [];
+      let tableDataAllocation = [];
+      let that = this;
+      let table = null;
+      window.onload = function() {
+        if (this.token) {
+          document.getElementById("loginCard").style.display = "none";
+          document.getElementById("tableCard").style.display = "display";
+        } else {
+          document.getElementById("loginCard").style.display = "display";
+          document.getElementById("tableCard").style.display = "none";
+        }
+      };
+
+      function getLogin() {
+        let email = document.getElementById("email").value;
+        let password = document.getElementById("password").value;
+        let http = new XMLHttpRequest();
+        http.open(
+          "POST",
+          "https://joann-allocation-staging.impactanalytics.co/login"
+        );
+        http.setRequestHeader("content-type", "application/Json");
+        http.send(
+          JSON.stringify({
+            emailID: email,
+            password: password
+          })
+        );
+        http.onload = function() {
+          if (this.status) {
+            this.token = JSON.parse(this.responseText).token;
+            this.authentication = `Bearer ${this.token}`;
+          }
+          console.log("====", this.token, this.authentication);
+          if (this.token) {
+            http.open(
+              "GET",
+              "https://joann-allocation-staging.impactanalytics.co/getAllocationsOfCurrentUser"
+            );
+            http.setRequestHeader("content-type", "Apllication/Json");
+            http.setRequestHeader("token", this.token);
+            http.setRequestHeader("authorization", this.authentication);
+            http.send();
+            http.onload = () => {
+              if (this.status) {
+                document.getElementById("loginCard").style.display = "none";
+                document.getElementById("tableCard").style.display = "block";
+                that.Allocations = JSON.parse(this.responseText).allocations;
+                console.log("Allocations", this.Allocations);
+                that.filter();
+              }
+            };
+          }
+        };
+      }
+      function getTable(Allocations) {
+        table = document.createElement("TABLE");
+        let header = [];
+        let row = [];
+        let data = [];
+        let tableheader = Object.keys(Allocations[0]);
+        if (Allocations && Allocations.length) {
+          row[0] = document.createElement("TR");
+          table.setAttribute("id", "myTable");
+          for (let i = 0; i < tableheader.length; i++) {
+            header[i] = document.createElement("TH");
+            header[i].setAttribute("value", tableheader[i]);
+            header[i].innerHTML = tableheader[i];
+            let filter = document.createElement("input");
+            filter.setAttribute("id", `filter${i}`);
+            filter.addEventListener("change", evt => {
+              let val = document.getElementById(`filter${i}`).value;
+              that.filter(tableheader[i], val);
+            });
+            header[i].appendChild(filter);
+            row[0].appendChild(header[i]);
+          }
+          table.appendChild(row[0]);
+          for (let i = 1; i <= Allocations.length; i++) {
+            row[i] = document.createElement("tr");
+            for (let j = 0; j < tableheader.length; j++) {
+              data[j] = document.createElement("td");
+              data[j].setAttribute("value", Allocations[i - 1][tableheader[j]]);
+              data[j].innerHTML = Allocations[i - 1][tableheader[j]];
+              row[i].appendChild(data[j]);
+            }
+            table.appendChild(row[i]);
+          }
+          document.getElementById("table-container").appendChild(table);
+        }
+      }
+      function filter(col, val) {
+        if (!col) {
+          that.tableDataAllocation = that.Allocations;
+          getTable(that.tableDataAllocation);
+        } else {
+          document.getElementById("table-container").removeChild(table);
+          let temp = that.Allocations.filter(ele => {
+            return ele[col].includes(val);
+          });
+          getTable(temp);
+        }
+      }
+    </script>
+  </body>
+</html>
